@@ -16,6 +16,8 @@ def load_modus_day(year=2000, day=56):
         df = df.append(this_df)
         del hdf, this_df
 
+    # TODO: add time variables to `df`
+
     return df
 
 
