@@ -8,11 +8,12 @@ def load_modus_day(year=2000, day=56):
     """ Append all the DF's for a single day """
     df = pd.DataFrame()
     # XXX For now, just grab the first ten files to save time
-    files = glob.glob(r'../data/src/{}/{}/*.hdf'.format(year, day))[:10]
+    files = glob.glob(r'../data/src/{}/{}/*.hdf'.format(year, day))
     for filepath in files:
         print(filepath)
         hdf = load_hdf(filepath)
         this_df = hdf_to_df(hdf)
+        this_df = this_df[this_df['aod'] > -9999].copy()
         df = df.append(this_df)
         del hdf, this_df
 
@@ -68,3 +69,9 @@ def print_datasets():
 
 if __name__ == '__main__':
     df = load_modus_day()
+    # df = df.append(load_modus_day(day=55))
+    # df = df.append(load_modus_day(day=57))
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.scatter(df['x'], df['y'])
+    plt.show()
