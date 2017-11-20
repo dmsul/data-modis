@@ -1,13 +1,38 @@
+import os
 import glob
 import pandas as pd
 import numpy as np
 from pyhdf.SD import SD, SDC
 
+from econtools import load_or_build
 
-def load_modus_day(year=2000, day=56):
+
+def modis_day_df_path():
+    return os.path.join(years_folder_path('{}'), '{}.pkl')
+
+
+def years_folder_path(year):
+    LOCAL_DATA_ROOT = '../data/'
+    target_path = os.path.join(LOCAL_DATA_ROOT, f'{year}')
+    return target_path
+
+
+@load_or_build(modis_day_df_path(), path_args=['year', 'day'])
+def load_modis_day(year=2000, day=56):
+    return load_modis_day_hdf(year, day)
+
+
+
+def make_years_folder(year):
+    path = Path(days_folder_path(year))
+    path.mkdir(exist_ok=True)
+
+
+
+
+def load_modis_day_hdf(year=2000, day=56):
     """ Append all the DF's for a single day """
     df = pd.DataFrame()
-    # XXX For now, just grab the first ten files to save time
     files = glob.glob(r'../data/src/{}/{}/*.hdf'.format(year, day))
     for filepath in files:
         print(filepath)
@@ -68,9 +93,9 @@ def print_datasets():
 
 
 if __name__ == '__main__':
-    df = load_modus_day()
-    # df = df.append(load_modus_day(day=55))
-    # df = df.append(load_modus_day(day=57))
+    df = load_modis_day()
+    # df = df.append(load_modis_day(day=55))
+    # df = df.append(load_modis_day(day=57))
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots()
     ax.scatter(df['x'], df['y'])
