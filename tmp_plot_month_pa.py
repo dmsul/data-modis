@@ -1,4 +1,5 @@
 import cartopy.crs as ccrs
+import cartopy.io.shapereader as shpreader
 from shapely.geometry import Point
 import geopandas as gpd
 import numpy as np
@@ -7,16 +8,31 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from scipy.spatial import Voronoi
 
-from explore_hdf import load_modus_day
+from explore_hdf import load_modis_day
+
+
+def main_grid():
+    pass
+
+
+def main_voronoi():
+    pass
 
 
 def modis_make_month():
     year = 2000
-    df = load_modus_day(year=year, day=56)
+    df = load_modis_day(year=year, day=56)
     for d in range(57, 70):
-        df = df.append(load_modus_day(year=year, day=d))
+        df = df.append(load_modis_day(year=year, day=d))
 
     return df
+
+
+def get_us_shapes():
+    shp_path = r'd:\Data\gis\census\2016\cb_2016_us_state_5m\cb_2016_us_state_5m.shp'
+    adm_shapes = list(shpreader.Reader(shp_path).geometries())
+    return adm_shapes
+
 
 
 def get_pa_shape():
@@ -108,14 +124,28 @@ def voronoi_finite_polygons_2d(vor, radius=None):
 
     return new_regions, np.asarray(new_vertices)
 
+
+def get_pa_modis():
+    """ janky and tmp """
+    df = modis_make_month()
+    # Restrict to (roughly) PA
+    x0, x1, y0, y1 = -81, -74, 39, 43
+    df = df[(df['x'] > x0) & (df['x'] < x1) & (df['y'] > y0) & (df['y'] < y1)]
+    # Round to nearest .025 degree (roughly 10 km)
+    factor = .05
+    df[['x', 'y']] = np.around(df[['x', 'y']] / factor).astype(int) * factor
+
+    df = df.groupby(['x', 'y'])['aod'].mean()
+
+    return df.reset_index().sort_values(['x', 'y'])
+
+
 if __name__ == '__main__':
-    pa_shp = get_pa_shape()
-
-
     ax = plt.axes(projection=ccrs.PlateCarree())
-    ax.add_geometries(pa_shp, ccrs.PlateCarree(),
+    ax.add_geometries(get_us_shapes(), ccrs.PlateCarree(),
                       edgecolor='white', facecolor='gray', alpha=0.3, zorder=1)
 
+    pa_shp = get_pa_shape()
     x0, y0, x1, y1 = pa_shp.bounds.values[0]
     x0 -= .5
     y0 -= .5
@@ -126,34 +156,43 @@ if __name__ == '__main__':
 
 
     # load data
-    df = pd.read_pickle('./tmp.pkl')
-    df['shade'] = df['aod'] / df['aod'].max()
-    points = df[['x', 'y']].values
+    # df = pd.read_pickle('./tmp.pkl')
+    df = get_pa_modis()
 
     # compute Voronoi tesselation
+    points = df[['x', 'y']].values
     vor = Voronoi(points)
 
     # plot
     pa_shp = pa_shp.squeeze()
 
-    regions, vertices = voronoi_finite_polygons_2d(vor)
+    if 0:
+        regions, vertices = voronoi_finite_polygons_2d(vor)
+    else:
+        regions, vertices = vor.regions, vor.vertices
     # colorize
     shapes = []
     for idx, region in enumerate(regions):
+        if not region:
+            continue
         polygon = vertices[region]
-        if min([pa_shp.contains(Point(p)) for p in polygon]):
+        if max([pa_shp.contains(Point(p)) for p in polygon]):
             shapes.append((polygon, df.iat[idx, 2]))
 
         else:
             continue
 
     gdf = pd.DataFrame(shapes)
-    gdf[1] = gdf[1]/ gdf[1].max()
+    # cut = pd.qcut(gdf[1], 10, labels=False)
+    cut = gdf[1]
+    gdf[2] = cut/ cut.max()
 
-    for idx, (polygon, val) in gdf.iterrows():
+    for idx, (polygon, __, val) in gdf.iterrows():
         ax.fill(*zip(*polygon), color=cm.YlOrBr(val), alpha=.8,
                 zorder=10)
 
     # plt.plot(points[:,0], points[:,1], 'ko')
+    sm = plt.cm.ScalarMappable(cmap=cm.YlOrBr, norm=plt.Normalize(0, 1))
+    sm._A = []
+    plt.colorbar(sm, ax=ax)
     plt.show()
-
