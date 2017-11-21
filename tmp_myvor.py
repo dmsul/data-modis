@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.spatial import Voronoi
 
-from explore_hdf import load_modus_day
+from explore_hdf import load_modis_day
 
 
 def voronoi_finite_polygons_2d(vor, radius=None):
