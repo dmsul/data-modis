@@ -20,9 +20,11 @@ def main_voronoi():
 
 
 def modis_make_month():
-    year = 2000
-    df = load_modis_day(year=year, day=56)
-    for d in range(57, 70):
+    # year = 2000
+    year = 2012
+    # df = load_modis_day(year=year, day=55)
+    df = load_modis_day(year=year, day=1)
+    for d in range(2, 22):
         df = df.append(load_modis_day(year=year, day=d))
 
     return df
@@ -32,7 +34,6 @@ def get_us_shapes():
     shp_path = r'd:\Data\gis\census\2016\cb_2016_us_state_5m\cb_2016_us_state_5m.shp'
     adm_shapes = list(shpreader.Reader(shp_path).geometries())
     return adm_shapes
-
 
 
 def get_pa_shape():
@@ -129,7 +130,12 @@ def get_pa_modis():
     """ janky and tmp """
     df = modis_make_month()
     # Restrict to (roughly) PA
-    x0, x1, y0, y1 = -81, -74, 39, 43
+    pa_shp = get_pa_shape()
+    x0, y0, x1, y1 = pa_shp.bounds.values[0]
+    x0 -= .5
+    y0 -= .5
+    x1 += .5
+    y1 += .5
     df = df[(df['x'] > x0) & (df['x'] < x1) & (df['y'] > y0) & (df['y'] < y1)]
     # Round to nearest .025 degree (roughly 10 km)
     factor = .05
@@ -176,23 +182,30 @@ if __name__ == '__main__':
         if not region:
             continue
         polygon = vertices[region]
-        if max([pa_shp.contains(Point(p)) for p in polygon]):
-            shapes.append((polygon, df.iat[idx, 2]))
+        if min([pa_shp.contains(Point(p)) for p in polygon]):
+            try:
+                shapes.append((polygon, df.iat[idx, 2]))
+            except IndexError:
+                pass
 
         else:
             continue
 
     gdf = pd.DataFrame(shapes)
     # cut = pd.qcut(gdf[1], 10, labels=False)
-    cut = gdf[1]
-    gdf[2] = cut/ cut.max()
+    num_bins = 20
+    cut = pd.qcut(gdf[1], q=[x / num_bins for x in range(num_bins)] + [.99, 1], labels=False)
+    # cut = gdf[1]
+    gdf[2] = cut / cut.max()
 
     for idx, (polygon, __, val) in gdf.iterrows():
-        ax.fill(*zip(*polygon), color=cm.YlOrBr(val), alpha=.8,
-                zorder=10)
+        ax.fill(*zip(*polygon), facecolor=cm.YlOrBr(val), edgecolor=None,
+                alpha=.8, zorder=10)
 
     # plt.plot(points[:,0], points[:,1], 'ko')
-    sm = plt.cm.ScalarMappable(cmap=cm.YlOrBr, norm=plt.Normalize(0, 1))
-    sm._A = []
-    plt.colorbar(sm, ax=ax)
-    plt.show()
+    if 0:
+        sm = plt.cm.ScalarMappable(cprintmap=cm.YlOrBr, norm=plt.Normalize(0, 1))
+        sm._A = []
+        plt.colorbar(sm, ax=ax)
+    # plt.show()
+    plt.savefig('../MODIS_PM_rough.jpg', dpi=600, bbox_inches='tight')

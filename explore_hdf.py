@@ -22,25 +22,21 @@ def load_modis_day(year=2000, day=56):
     return load_modis_day_hdf(year, day)
 
 
-
 def make_years_folder(year):
     path = Path(days_folder_path(year))
     path.mkdir(exist_ok=True)
 
 
-
-
 def load_modis_day_hdf(year=2000, day=56):
     """ Append all the DF's for a single day """
     df = pd.DataFrame()
-    files = glob.glob(r'../data/src/{}/{}/*.hdf'.format(year, day))
-    for filepath in files:
-        print(filepath)
-        hdf = load_hdf(filepath)
-        this_df = hdf_to_df(hdf)
-        this_df = this_df[this_df['aod'] > -9999].copy()
-        df = df.append(this_df)
-        del hdf, this_df
+    day_str = str(day).zfill(3)
+    files = glob.glob(r'../data/src/{}/{}/*.hdf'.format(year, day_str))
+    if not files:
+        raise ValueError("No files found!")
+    print(files[0])
+    dfs = [hdf_to_df(load_hdf(filepath)) for filepath in files]
+    df = pd.concat(dfs).reset_index(drop=True)
 
     # TODO: add time variables to `df`
 
@@ -54,24 +50,31 @@ def hdf_to_df(hdf):
 
     lat = _flatten_tables_data(table_lat)
     lon = _flatten_tables_data(table_lon)
-    depth = _flatten_tables_data(table_depth)
+    depth, scale_factor, add_offset = _flatten_tables_data(table_depth,
+                                                           return_offset=True)
 
     df = pd.DataFrame(
         np.hstack((lon, lat, depth)),
         columns=['x', 'y', 'aod']
     )
-    # df = df.set_index(['x', 'y'])
+
+    df = df[df['aod'] != scale_factor * (-9999 - add_offset)].copy()
     
     return df
 
-def _flatten_tables_data(hdf_table):
+def _flatten_tables_data(hdf_table, return_offset=False):
     """
     Take an `hdf_table` and make its data a 2D vector (2D for use with
     `np.hstack`)
     """
     arr = hdf_table[:, :]
-    flat_arr = arr.reshape(-1, 1)
-    return flat_arr
+    scale_factor = hdf_table.attributes()['scale_factor']
+    add_offset = hdf_table.attributes()['add_offset']
+    flat_arr = scale_factor * (arr.reshape(-1, 1) - add_offset)
+    if return_offset:
+        return flat_arr, scale_factor, add_offset
+    else:
+        return flat_arr
 
 
 def load_hdf(filepath):
