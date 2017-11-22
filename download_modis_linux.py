@@ -57,6 +57,13 @@ def download_day(year, day, ftp):
                 ftp.cwd(f'{year}')
                 ftp.cwd(day)
                 _get_binary(f, target_path, ftp)
+            except (ftplib.error_reply, ftplib.error_temp):
+                print("Connection error! Reseting FTP connection...", end='')
+                ftp.close()
+                ftp = setup_ftp_connection()
+                ftp.cwd(f'{year}')
+                ftp.cwd(day)
+                _get_binary(f, target_path, ftp)
             finally:
                 time.sleep(SLEEP)
 
