@@ -5,8 +5,8 @@ import time
 
 import timeout_decorator
 
-LOCAL_DATA_ROOT = '/media/sf_Data/modis/src'
-SLEEP = 2
+LOCAL_DATA_ROOT = '/media/sf_data/modis/src'
+SLEEP = 1
 
 
 def download_year(year):
@@ -39,35 +39,40 @@ def download_day(year, day, ftp):
             continue
         else:
             print(f"Downloading {f}...", end='', flush=True)
-            try:
-                _get_binary(f, target_path, ftp)
-            except KeyboardInterrupt:
-                print("Interrupt!")
-                ftp.quit()
-                os.remove(target_path)      # XXX doesn't work, file locked
-                raise
-            except StopIteration:
-                print("Timeout! Reseting FTP connection...", end='')
-                ftp.close()
-                try:
-                    os.remove(target_path)
-                except:
-                    print("File removal failed")
-                ftp = setup_ftp_connection()
-                ftp.cwd(f'{year}')
-                ftp.cwd(day)
-                _get_binary(f, target_path, ftp)
-            except (ftplib.error_reply, ftplib.error_temp):
-                print("Connection error! Reseting FTP connection...", end='')
-                ftp.close()
-                ftp = setup_ftp_connection()
-                ftp.cwd(f'{year}')
-                ftp.cwd(day)
-                _get_binary(f, target_path, ftp)
-            finally:
-                time.sleep(SLEEP)
+            ftp = wrap_download(year, day , ftp, f, target_path)
 
     ftp.cwd('..')       # Move back up to `year` folder
+    return ftp
+
+
+def wrap_download(year, day, ftp, filename, target_path):
+    try:
+        _get_binary(filename, target_path, ftp)
+    except KeyboardInterrupt:
+        print("Interrupt!")
+        ftp.quit()
+        os.remove(target_path)      # XXX doesn't work, file locked
+        raise
+    except StopIteration:
+        print("Timeout! ", end='')
+        ftp = _reset_ftp(year, day, ftp)
+        wrap_download(year, day, ftp, filename, target_path)
+    except (ftplib.error_reply, ftplib.error_temp):
+        print("Connection error! ", end='')
+        ftp = _reset_ftp(year, day, ftp)
+        wrap_download(year, day, ftp, filename, target_path)
+    finally:
+        time.sleep(SLEEP)
+
+    return ftp
+
+
+def _reset_ftp(year, day, ftp):
+    print('Reseting FTP connection...', end='')
+    ftp.close()
+    ftp = setup_ftp_connection()
+    ftp.cwd(f'{year}')
+    ftp.cwd(day)
     return ftp
 
 
