@@ -5,11 +5,11 @@ import time
 
 import timeout_decorator
 
-LOCAL_DATA_ROOT = '/media/sf_data/modis/src'
+LOCAL_DATA_ROOT = '/media/sf_modis/src'
 SLEEP = 1
 
 
-def download_year(year):
+def download_year(year, chunk=None):
     """ Download all MODIS_3K files for `year` """
     ftp = setup_ftp_connection()
 
@@ -17,7 +17,16 @@ def download_year(year):
 
     days = ftp.nlst()       # List all folders (days) under `year`
 
-    for day in days:
+    if chunk is None:
+        chunk_list = days
+    elif chunk == 1:
+        chunk_list = days[:120]
+    elif chunk == 2:
+        chunk_list = days[120:240]
+    elif chunk == 3:
+        chunk_list = days[240:]
+
+    for day in chunk_list:
         ftp = download_day(year, day, ftp)
 
     ftp.quit()
@@ -57,7 +66,7 @@ def wrap_download(year, day, ftp, filename, target_path):
         print("Timeout! ", end='')
         ftp = _reset_ftp(year, day, ftp)
         wrap_download(year, day, ftp, filename, target_path)
-    except (ftplib.error_reply, ftplib.error_temp):
+    except (ftplib.error_reply, ftplib.error_temp, ConnectionResetError):
         print("Connection error! ", end='')
         ftp = _reset_ftp(year, day, ftp)
         wrap_download(year, day, ftp, filename, target_path)
@@ -110,11 +119,15 @@ def days_folder_path(year, day):
 
 if __name__ == '__main__':
     import sys
-    if len(sys.argv) > 1:
+    if len(sys.argv) == 2:
         year = int(sys.argv[1])
         if not (2000 < year < 2018):
             raise ValueError(f"Invalid year: {year}")
+        chunk = None
+    elif len(sys.argv) == 3:
+        year = int(sys.argv[1])
+        chunk = int(sys.argv[2])
     else:
-        year = 2012
+        raise ValueError
 
-    download_year(year)
+    download_year(year, chunk=chunk)
