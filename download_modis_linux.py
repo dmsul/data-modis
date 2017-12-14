@@ -48,7 +48,7 @@ def download_day(year, day, ftp):
             continue
         else:
             print(f"Downloading {f}...", end='', flush=True)
-            ftp = wrap_download(year, day , ftp, f, target_path)
+            ftp = wrap_download(year, day, ftp, f, target_path)
 
     ftp.cwd('..')       # Move back up to `year` folder
     return ftp
@@ -90,7 +90,6 @@ def _get_binary(filename, target_path, ftp):
     with open(target_path, 'wb') as open_f:
         ftp.retrbinary(f"RETR {filename}", open_f.write)
     print('done!')
-
 
 
 def setup_ftp_connection():
