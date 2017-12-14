@@ -1,20 +1,38 @@
+import os
 import glob
 import pandas as pd
 import numpy as np
 from pyhdf.SD import SD, SDC
 
+from econtools import load_or_build
 
-def load_modus_day(year=2000, day=56):
+
+def modis_day_df_path():
+    return os.path.join(years_folder_path('{}'), '{}.pkl')
+
+
+def years_folder_path(year):
+    LOCAL_DATA_ROOT = '../data/'
+    target_path = os.path.join(LOCAL_DATA_ROOT, f'{year}')
+    return target_path
+
+
+@load_or_build(modis_day_df_path(), path_args=['year', 'day'])
+def load_modis_day(year=2000, day=56):
+    return load_modis_day_hdf(year, day)
+
+
+def load_modis_day_hdf(year=2000, day=56):
     """ Append all the DF's for a single day """
     df = pd.DataFrame()
-    # XXX For now, just grab the first ten files to save time
-    files = glob.glob(r'../data/src/{}/{}/*.hdf'.format(year, day))[:10]
-    for filepath in files:
-        print(filepath)
-        hdf = load_hdf(filepath)
-        this_df = hdf_to_df(hdf)
-        df = df.append(this_df)
-        del hdf, this_df
+    day_str = str(day).zfill(3)
+    src_path_str = 'f:/data/modis/src/'
+    files = glob.glob(os.path.join(src_path_str, f'{year}/{day_str}/*.hdf'))
+    if not files:
+        raise ValueError("No files found!")
+    print(files[0])
+    dfs = [hdf_to_df(load_hdf(filepath)) for filepath in files]
+    df = pd.concat(dfs).reset_index(drop=True)
 
     # TODO: add time variables to `df`
 
@@ -28,24 +46,40 @@ def hdf_to_df(hdf):
 
     lat = _flatten_tables_data(table_lat)
     lon = _flatten_tables_data(table_lon)
-    depth = _flatten_tables_data(table_depth)
+    depth, scale_factor, add_offset = _flatten_tables_data(table_depth,
+                                                           return_offset=True)
 
     df = pd.DataFrame(
         np.hstack((lon, lat, depth)),
         columns=['x', 'y', 'aod']
     )
-    # df = df.set_index(['x', 'y'])
-    
+
+    df = df[df['aod'] != scale_factor * (-9999 - add_offset)].copy()
+
+    if 1:
+        # Restrict to continental U.S.
+        x0 = -124.7844079
+        x1 = -66.9513812
+        y0 = 24.7433195
+        y1 = 49.3457868
+        in_cotus = (df['x'].between(x0, x1)) & (df['y'].between(y0, y1))
+        df = df[in_cotus]
+
     return df
 
-def _flatten_tables_data(hdf_table):
+def _flatten_tables_data(hdf_table, return_offset=False):
     """
     Take an `hdf_table` and make its data a 2D vector (2D for use with
     `np.hstack`)
     """
     arr = hdf_table[:, :]
-    flat_arr = arr.reshape(-1, 1)
-    return flat_arr
+    scale_factor = hdf_table.attributes()['scale_factor']
+    add_offset = hdf_table.attributes()['add_offset']
+    flat_arr = scale_factor * (arr.reshape(-1, 1) - add_offset)
+    if return_offset:
+        return flat_arr, scale_factor, add_offset
+    else:
+        return flat_arr
 
 
 def load_hdf(filepath):
@@ -67,4 +101,10 @@ def print_datasets():
 
 
 if __name__ == '__main__':
-    df = load_modus_day()
+    df = load_modis_day()
+    # df = df.append(load_modis_day(day=55))
+    # df = df.append(load_modis_day(day=57))
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.scatter(df['x'], df['y'])
+    plt.show()
