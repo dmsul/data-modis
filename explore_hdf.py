@@ -22,16 +22,12 @@ def load_modis_day(year=2000, day=56):
     return load_modis_day_hdf(year, day)
 
 
-def make_years_folder(year):
-    path = Path(days_folder_path(year))
-    path.mkdir(exist_ok=True)
-
-
 def load_modis_day_hdf(year=2000, day=56):
     """ Append all the DF's for a single day """
     df = pd.DataFrame()
     day_str = str(day).zfill(3)
-    files = glob.glob(r'../data/src/{}/{}/*.hdf'.format(year, day_str))
+    src_path_str = 'f:/data/modis/src/'
+    files = glob.glob(os.path.join(src_path_str, f'{year}/{day_str}/*.hdf'))
     if not files:
         raise ValueError("No files found!")
     print(files[0])
@@ -59,7 +55,16 @@ def hdf_to_df(hdf):
     )
 
     df = df[df['aod'] != scale_factor * (-9999 - add_offset)].copy()
-    
+
+    if 1:
+        # Restrict to continental U.S.
+        x0 = -124.7844079
+        x1 = -66.9513812
+        y0 = 24.7433195
+        y1 = 49.3457868
+        in_cotus = (df['x'].between(x0, x1)) & (df['y'].between(y0, y1))
+        df = df[in_cotus]
+
     return df
 
 def _flatten_tables_data(hdf_table, return_offset=False):
