@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from scipy.spatial import Voronoi
 
-from explore_hdf import load_modis_day
+from .clean.raw import load_modis_day
 
 
 def main_grid():
