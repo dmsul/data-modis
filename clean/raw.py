@@ -26,7 +26,7 @@ def load_modis_day_hdf(year=2000, day=56):
     """ Append all the DF's for a single day """
     df = pd.DataFrame()
     day_str = str(day).zfill(3)
-    src_path_str = 'f:/data/modis/src/'
+    src_path_str = 'e:/modis/src/'
     files = glob.glob(os.path.join(src_path_str, f'{year}/{day_str}/*.hdf'))
     if not files:
         raise ValueError("No files found!")
