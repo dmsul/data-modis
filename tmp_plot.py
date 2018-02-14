@@ -3,7 +3,7 @@ import cartopy.io.shapereader as shpreader
 import matplotlib.pyplot as plt
 
 
-shp_path = r'd:\Data\gis\census\2016\cb_2016_us_state_5m\cb_2016_us_state_5m.shp'
+shp_path = r'd:\Data\gis\census\cb_2016_us_state_5m\cb_2016_us_state_5m.shp'
 
 adm_shapes = list(shpreader.Reader(shp_path).geometries())
 
