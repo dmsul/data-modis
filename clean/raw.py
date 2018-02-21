@@ -6,18 +6,27 @@ from pyhdf.SD import SD, SDC
 
 from econtools import load_or_build
 
-
-def modis_day_df_path():
-    return os.path.join(years_folder_path('{}'), '{}.pkl')
+from util.env import data_path
 
 
-def years_folder_path(year):
-    LOCAL_DATA_ROOT = '../data/'
-    target_path = os.path.join(LOCAL_DATA_ROOT, f'{year}')
-    return target_path
+@load_or_build(data_path('modis_{}.pkl'), path_args=[0])
+def load_modis_year(year):
+    def _wrapper(a, b):
+        try:
+            return load_modis_day(a, b)
+        except ValueError:
+            return pd.DataFrame()
+
+    dfs = [_wrapper(year, x) for x in range(1, 366)]
+    df = pd.concat(dfs)
+    del dfs
+
+    df = df.astype(np.float32).set_index(['x', 'y'])
+
+    return df
 
 
-@load_or_build(modis_day_df_path(), path_args=[0, 1])
+@load_or_build(data_path('{}', '{}.pkl'), path_args=[0, 1])
 def load_modis_day(year, day):
     return load_modis_day_hdf(year, day)
 
@@ -106,8 +115,4 @@ def print_datasets():
 
 
 if __name__ == '__main__':
-    df = load_modis_day(2000, 56)
-    import matplotlib.pyplot as plt
-    fig, ax = plt.subplots()
-    ax.scatter(df['x'], df['y'])
-    plt.show()
+    df = load_modis_year(2002)
