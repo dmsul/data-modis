@@ -3,9 +3,24 @@ from pathlib import Path
 import ftplib
 import time
 
-import timeout_decorator
+try:
+    # This utility only works on Linux
+    from timeout_decorator import timeout
 
-LOCAL_DATA_ROOT = '/media/sf_modis/src'
+    LOCAL_DATA_ROOT = '/media/sf_modis/src'
+except ImportError:
+    from sys import platform
+    if 'linux' in platform:
+        raise ImportError
+
+    def timeout(*args, **kwargs):
+        """ Dummy decorator for 'timeout' we don't have """
+        def true_decorator(f):
+            return f
+        return true_decorator
+    LOCAL_DATA_ROOT = 'e:\\modis\\src'
+
+
 SLEEP = 1
 
 
@@ -85,7 +100,7 @@ def _reset_ftp(year, day, ftp):
     return ftp
 
 
-@timeout_decorator.timeout(60, timeout_exception=StopIteration)
+@timeout(60, timeout_exception=StopIteration)
 def _get_binary(filename, target_path, ftp):
     with open(target_path, 'wb') as open_f:
         ftp.retrbinary(f"RETR {filename}", open_f.write)
