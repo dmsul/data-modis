@@ -2,3 +2,4 @@
 .ropeproject
 data
 out
+*egg-info*
