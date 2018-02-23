@@ -3,11 +3,13 @@ from pathlib import Path
 import ftplib
 import time
 
+from util.env import HDF_SRC_PATH_NIX, HDF_SRC_PATH_WIN
+
 try:
     # This utility only works on Linux
     from timeout_decorator import timeout
 
-    LOCAL_DATA_ROOT = '/media/sf_modis/src'
+    LOCAL_DATA_ROOT = HDF_SRC_PATH_NIX
 except ImportError:
     from sys import platform
     if 'linux' in platform:
@@ -18,7 +20,7 @@ except ImportError:
         def true_decorator(f):
             return f
         return true_decorator
-    LOCAL_DATA_ROOT = 'e:\\modis\\src'
+    LOCAL_DATA_ROOT = HDF_SRC_PATH_WIN
 
 
 SLEEP = 1
