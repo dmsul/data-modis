@@ -144,4 +144,9 @@ if __name__ == '__main__':
     else:
         raise ValueError
 
-    download_year(year, chunk=chunk)
+    if 0:
+        download_year(year, chunk=chunk)
+    else:
+        ftp = setup_ftp_connection()
+        ftp.cwd(f'{year}')
+        ftp = download_day(year, f'{chunk}'.zfill(3), ftp)
