@@ -1,4 +1,4 @@
 *.pyc
 .ropeproject
-data/*
-out/*
+data
+out
