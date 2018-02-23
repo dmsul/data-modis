@@ -6,28 +6,35 @@ from pyhdf.SD import SD, SDC
 
 from econtools import load_or_build
 
-
-def modis_day_df_path():
-    return os.path.join(years_folder_path('{}'), '{}.pkl')
+from util.env import data_path
 
 
-def years_folder_path(year):
-    LOCAL_DATA_ROOT = '../data/'
-    target_path = os.path.join(LOCAL_DATA_ROOT, f'{year}')
-    return target_path
+@load_or_build(data_path('modis_{}.pkl'), path_args=[0])
+def load_modis_year(year):
+    def _wrapper(a, b):
+        try:
+            return load_modis_day(a, b)
+        except ValueError:
+            return pd.DataFrame()
+
+    dfs = [_wrapper(year, x) for x in range(1, 366)]
+    df = pd.concat(dfs)
+    del dfs
+
+    df = df.astype(np.float32).set_index(['x', 'y'])
+
+    return df
 
 
-@load_or_build(modis_day_df_path(), path_args=['year', 'day'])
-def load_modis_day(year=2000, day=56):
+@load_or_build(data_path('{}', '{}.pkl'), path_args=[0, 1])
+def load_modis_day(year, day):
     return load_modis_day_hdf(year, day)
 
 
-def load_modis_day_hdf(year=2000, day=56):
+def load_modis_day_hdf(year, day):
     """ Append all the DF's for a single day """
     df = pd.DataFrame()
-    day_str = str(day).zfill(3)
-    src_path_str = 'f:/data/modis/src/'
-    files = glob.glob(os.path.join(src_path_str, f'{year}/{day_str}/*.hdf'))
+    files = filenames_modis_day_hdf(year, day)
     if not files:
         raise ValueError("No files found!")
     print(files[0])
@@ -37,6 +44,13 @@ def load_modis_day_hdf(year=2000, day=56):
     # TODO: add time variables to `df`
 
     return df
+
+
+def filenames_modis_day_hdf(year, day):
+    day_str = str(day).zfill(3)
+    src_path_str = 'e:/modis/src/'
+    files = glob.glob(os.path.join(src_path_str, f'{year}/{day_str}/*.hdf'))
+    return files
 
 
 def hdf_to_df(hdf):
@@ -101,10 +115,4 @@ def print_datasets():
 
 
 if __name__ == '__main__':
-    df = load_modis_day()
-    # df = df.append(load_modis_day(day=55))
-    # df = df.append(load_modis_day(day=57))
-    import matplotlib.pyplot as plt
-    fig, ax = plt.subplots()
-    ax.scatter(df['x'], df['y'])
-    plt.show()
+    df = load_modis_year(2002)

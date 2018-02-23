@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from scipy.spatial import Voronoi
 
-from explore_hdf import load_modis_day
+from .clean.raw import load_modis_day
 
 
 def main_grid():
@@ -160,7 +160,6 @@ if __name__ == '__main__':
 
     ax.set_extent([x0, x1, y0, y1], ccrs.PlateCarree())
 
-
     # load data
     # df = pd.read_pickle('./tmp.pkl')
     df = get_pa_modis()
@@ -194,7 +193,8 @@ if __name__ == '__main__':
     gdf = pd.DataFrame(shapes)
     # cut = pd.qcut(gdf[1], 10, labels=False)
     num_bins = 20
-    cut = pd.qcut(gdf[1], q=[x / num_bins for x in range(num_bins)] + [.99, 1], labels=False)
+    cut = pd.qcut(gdf[1], q=[x / num_bins for x in range(num_bins)] + [.99, 1],
+                  labels=False)
     # cut = gdf[1]
     gdf[2] = cut / cut.max()
 
@@ -204,7 +204,8 @@ if __name__ == '__main__':
 
     # plt.plot(points[:,0], points[:,1], 'ko')
     if 0:
-        sm = plt.cm.ScalarMappable(cprintmap=cm.YlOrBr, norm=plt.Normalize(0, 1))
+        sm = plt.cm.ScalarMappable(cprintmap=cm.YlOrBr, norm=plt.Normalize(0,
+                                                                           1))
         sm._A = []
         plt.colorbar(sm, ax=ax)
     # plt.show()
