@@ -6,7 +6,7 @@ from pyhdf.SD import SD, SDC
 
 from econtools import load_or_build
 
-from util.env import data_path
+from modis.util.env import data_path
 
 
 @load_or_build(data_path('modis_{}.pkl'), path_args=[0])
