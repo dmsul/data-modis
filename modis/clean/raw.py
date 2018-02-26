@@ -10,10 +10,10 @@ from modis.util.env import data_path
 
 
 @load_or_build(data_path('modis_{}.pkl'), path_args=[0])
-def load_modis_year(year):
+def load_modis_year(year, _rebuild_down=False):
     def _wrapper(a, b):
         try:
-            return load_modis_day(a, b)
+            return load_modis_day(a, b, _rebuild=_rebuild_down)
         except ValueError:
             return pd.DataFrame()
 
@@ -21,7 +21,7 @@ def load_modis_year(year):
     df = pd.concat(dfs)
     del dfs
 
-    df = df.astype(np.float32).set_index(['x', 'y'])
+    df = df.set_index(['x', 'y'])
 
     return df
 
@@ -41,7 +41,9 @@ def load_modis_day_hdf(year, day):
     dfs = [hdf_to_df(load_hdf(filepath)) for filepath in files]
     df = pd.concat(dfs).reset_index(drop=True)
 
-    # TODO: add time variables to `df`
+    # Compress dtypes
+    for col in ('x', 'y', 'aod'):
+        df[col] = df[col].astype(np.float32)
 
     return df
 
@@ -68,6 +70,12 @@ def hdf_to_df(hdf):
         columns=['x', 'y', 'aod']
     )
 
+    # Add scan time
+    table_time = hdf.select('Scan_Start_Time')
+    scan_time, time_origin = _flatten_time_data(table_time)
+    df['time'] = pd.to_datetime(scan_time, unit='s', origin=time_origin)
+
+    # Drop missings
     df = df[df['aod'] != scale_factor * (-9999 - add_offset)].copy()
 
     if 1:
@@ -95,6 +103,28 @@ def _flatten_tables_data(hdf_table, return_offset=False):
     else:
         return flat_arr
 
+def _flatten_time_data(hdf_table):
+    """
+    Take an `hdf_table` and make its data a 2D vector (2D for use with
+    `np.hstack`)
+    """
+    arr = hdf_table[:, :]
+    scale_factor = hdf_table.attributes()['scale_factor']
+    add_offset = hdf_table.attributes()['add_offset']
+    flat_arr = arr.reshape(-1, 1).astype(np.int64).squeeze()
+    if scale_factor == 1 and add_offset == 0:
+        pass
+    else:
+        flat_arr = scale_factor * (flat_arr - add_offset)
+
+    # Get time origin
+    origin_str = hdf_table.attributes()['units']
+    origin_str = origin_str.replace('Seconds since ', '')
+    origin_str = ' '.join(origin_str.split(' ')[:-1])
+    origin_datetime = pd.Timestamp(origin_str)
+
+    return flat_arr, origin_datetime
+
 
 def load_hdf(filepath):
     hdf = SD(filepath, SDC.READ)
@@ -115,4 +145,7 @@ def print_datasets():
 
 
 if __name__ == '__main__':
-    df = load_modis_year(2002)
+    df = load_modis_year(2001, _rebuild=True, _rebuild_down=False)
+    for year in range(2002, 2017):
+        df = load_modis_year(year, _rebuild=True, _rebuild_down=True)
+        del df
