@@ -21,7 +21,7 @@ def load_modis_year(year, _rebuild_down=False):
     df = pd.concat(dfs)
     del dfs
 
-    df = df.astype(np.float32).set_index(['x', 'y'])
+    df = df.set_index(['x', 'y'])
 
     return df
 
@@ -145,6 +145,7 @@ def print_datasets():
 
 
 if __name__ == '__main__':
-    for year in range(2000, 2017):
+    df = load_modis_year(2001, _rebuild=True, _rebuild_down=False)
+    for year in range(2002, 2017):
         df = load_modis_year(year, _rebuild=True, _rebuild_down=True)
         del df
