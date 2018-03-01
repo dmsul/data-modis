@@ -1,7 +1,18 @@
 import os
 import socket
 
+# Check which machine we're on
+HOST = socket.gethostname()
+if HOST == 'sullivan-7d':
+    data_root = "D:\\"
+elif HOST == 'DESKTOP-HOME':
+    data_root = "D:\\"
+elif HOST == 'nepf-7d':
+    data_root = "M:\\EPA_AirPollution\\"
+else:
+    data_root = r'\\Sullivan-7d\d'
 
+<<<<<<< Updated upstream
 # Check which machine we're on
 HOST = socket.gethostname()
 if HOST == 'sullivan-7d':
@@ -12,6 +23,8 @@ else:
     data_root = r'\\Sullivan-7d\d'
 
 
+=======
+>>>>>>> Stashed changes
 DATA_PATH = os.path.join(data_root, 'Data', 'modis')
 
 HDF_SRC_PATH_WIN = 'e:\\modis\\src'
