@@ -1,8 +1,4 @@
-from clean.raw import load_modis_year
-
-
-def annual_mean(year, spatial_index=None):
-    df = load_modis_year(2000)
+def annual_mean(df, spatial_index=None):
     quarter = (df['time'].dt.month - 1) // 3 + 1
     quarter_mean = df.groupby(quarter)['aod'].mean()
 
@@ -12,7 +8,3 @@ def annual_mean(year, spatial_index=None):
     annual_mean = quarter_mean.mean()
 
     return annual_mean
-
-
-if __name__ == '__main__':
-    annual_mean(2000)
