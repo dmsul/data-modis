@@ -13,15 +13,14 @@ from modis.util.env import data_path
 def load_modis_year(year, _rebuild_down=False):
     def _wrapper(a, b):
         try:
-            return load_modis_day(a, b, _rebuild=_rebuild_down)
+            return load_modis_day(a, b,
+                                  _rebuild=_rebuild_down).set_index(['x', 'y'])
         except ValueError:
             return pd.DataFrame()
 
-    dfs = [_wrapper(year, x) for x in range(1, 366)]
+    dfs = [_wrapper(year, x) for x in range(1, 367)]
     df = pd.concat(dfs)
     del dfs
-
-    df = df.set_index(['x', 'y'])
 
     return df
 
@@ -145,7 +144,7 @@ def print_datasets():
 
 
 if __name__ == '__main__':
-    df = load_modis_year(2001, _rebuild=True, _rebuild_down=False)
-    for year in range(2002, 2017):
+    df = load_modis_year(2012, _rebuild=True, _rebuild_down=False)
+    for year in range(2013, 2017):
         df = load_modis_year(year, _rebuild=True, _rebuild_down=True)
         del df
