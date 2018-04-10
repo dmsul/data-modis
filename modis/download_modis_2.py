@@ -15,25 +15,41 @@ from urllib.request import urlopen, Request, URLError, HTTPError
 import ssl
 from io import StringIO
 
-from util.env import data_path
+from util.env import HDF_SRC_PATH_WIN, HDF_SRC_PATH_NIX
+try:
+    # This utility only works on Linux
+    from timeout_decorator import timeout
+
+    LOCAL_DATA_ROOT = HDF_SRC_PATH_NIX
+except ImportError:
+    from sys import platform
+    if 'linux' in platform:
+        raise ImportError
+
+    def timeout(*args, **kwargs):
+        """ Dummy decorator for 'timeout' we don't have """
+        def true_decorator(f):
+            return f
+        return true_decorator
+    LOCAL_DATA_ROOT = HDF_SRC_PATH_WIN
 
 
-def _main():
+def _main(year, start_day=1):
     source = (
-        r'https://ladsweb.modaps.eosdis.nasa.gov/archive'
-        r'/allData/6/MOD04_3K/2017/002'
+        'https://ladsweb.modaps.eosdis.nasa.gov/archive'
+        f'/allData/6/MOD04_3K/{year}'
     )
     token = 'F1957080-3CE3-11E8-B246-FFF9569DBFBA'
 
-    destination = data_path('tmp')
+    destination = os.path.join(LOCAL_DATA_ROOT, str(year))
 
     if not os.path.exists(destination):
         os.makedirs(destination)
 
-    return sync(source, destination, token)
+    return sync(source, destination, token, start_day=start_day)
 
 
-def sync(src, dest, tok):
+def sync(src, dest, tok, start_day=None):
     '''synchronize src url with dest directory'''
     try:
         import csv
@@ -46,21 +62,22 @@ def sync(src, dest, tok):
         import json
         files = json.loads(geturl(src + '.json', tok))
 
-    # use os.path since python 2/3 both support it while pathlib is 3.4+
+    # Skip days to `start_day`
+    if start_day is not None:
+        files = files[start_day - 1:]
+
     for f in files:
         # currently we use filesize of 0 to indicate directory
+        # import ipdb; ipdb.set_trace()
         filesize = int(f['size'])
         path = os.path.join(dest, f['name'])
         url = src + '/' + f['name']
         if filesize == 0:
             try:
-                print('creating dir:', path)
                 os.mkdir(path)
-                sync(src + '/' + f['name'], path, tok)
             except IOError as e:
-                print("mkdir `%s': %s" % (e.filename, e.strerror),
-                      file=sys.stderr)
-                sys.exit(-1)
+                pass
+            sync(src + '/' + f['name'], path, tok)
         else:
             try:
                 if not os.path.exists(path):
@@ -68,14 +85,18 @@ def sync(src, dest, tok):
                     with open(path, 'w+b') as fh:
                         geturl(url, tok, fh)
                 else:
-                    print('skipping: ', path)
+                    pass
+            except StopIteration:
+                print("Timeout! Trying again...")
+                sync(src, dest, tok)
             except IOError as e:
                 print("open `%s': %s" % (e.filename, e.strerror),
                       file=sys.stderr)
-                sys.exit(-1)
+                raise
     return 0
 
 
+@timeout(60, timeout_exception=StopIteration)
 def geturl(url, token=None, out=None):
     USERAGENT = (
         'tis/download.py_1.0--' +
@@ -104,7 +125,15 @@ def geturl(url, token=None, out=None):
 
 
 if __name__ == '__main__':
-    try:
-        sys.exit(_main())
-    except KeyboardInterrupt:
-        sys.exit(-1)
+    if len(sys.argv) == 2:
+        year = int(sys.argv[1])
+        if not (2000 < year < 2018):
+            raise ValueError(f"Invalid year: {year}")
+        chunk = None
+    elif len(sys.argv) == 3:
+        year = int(sys.argv[1])
+        chunk = int(sys.argv[2])
+    else:
+        raise ValueError
+
+    _main(year, start_day=chunk)
