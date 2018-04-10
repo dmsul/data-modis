@@ -1,10 +1,21 @@
+"""
+DESC = ("This script will recursively download all files if they don't exist"
+        "from a LAADS URL and stores them to the specified path")
+Based on example script found at
+
+https://ladsweb.modaps.eosdis.nasa.gov/tools-and-services/data-download-scripts/#python
+
+on 10 Apr 2018
+"""
 import os
-from pathlib import Path
-import ftplib
-import time
+import os.path
+import shutil
+import sys
+from urllib.request import urlopen, Request, URLError, HTTPError
+import ssl
+from io import StringIO
 
-from util.env import HDF_SRC_PATH_NIX, HDF_SRC_PATH_WIN
-
+from util.env import HDF_SRC_PATH_WIN, HDF_SRC_PATH_NIX
 try:
     # This utility only works on Linux
     from timeout_decorator import timeout
@@ -23,118 +34,97 @@ except ImportError:
     LOCAL_DATA_ROOT = HDF_SRC_PATH_WIN
 
 
-SLEEP = 1
+def _main(year, start_day=1):
+    source = (
+        'https://ladsweb.modaps.eosdis.nasa.gov/archive'
+        f'/allData/6/MOD04_3K/{year}'
+    )
+    token = 'F1957080-3CE3-11E8-B246-FFF9569DBFBA'
+
+    destination = os.path.join(LOCAL_DATA_ROOT, str(year))
+
+    if not os.path.exists(destination):
+        os.makedirs(destination)
+
+    return sync(source, destination, token, start_day=start_day)
 
 
-def download_year(year, chunk=None):
-    """ Download all MODIS_3K files for `year` """
-    ftp = setup_ftp_connection()
-
-    ftp.cwd(f'{year}')
-
-    days = ftp.nlst()       # List all folders (days) under `year`
-
-    if chunk is None:
-        chunk_list = days
-    elif chunk == 1:
-        chunk_list = days[:120]
-    elif chunk == 2:
-        chunk_list = days[120:240]
-    elif chunk == 3:
-        chunk_list = days[240:]
-
-    for day in chunk_list:
-        ftp = download_day(year, day, ftp)
-
-    ftp.quit()
-
-
-def download_day(year, day, ftp):
-    """
-    Download all MODIS_3K files for `year'/`day'. Requires `ftp` to already be
-    in the proper directory for `year`
-    """
-    ftp.cwd(day)
-    make_days_folder(year, day)
-    files = ftp.nlst()  # List all files for this day
-    for f in files:
-        target_path = files_target_path(year, day, f)
-        # If target file already downloaded, skip
-        if os.path.exists(target_path):
-            # print(f"File {f} exists on disk!")
-            continue
-        else:
-            print(f"Downloading {f}...", end='', flush=True)
-            ftp = wrap_download(year, day, ftp, f, target_path)
-
-    ftp.cwd('..')       # Move back up to `year` folder
-    return ftp
-
-
-def wrap_download(year, day, ftp, filename, target_path):
+def sync(src, dest, tok, start_day=None):
+    '''synchronize src url with dest directory'''
     try:
-        _get_binary(filename, target_path, ftp)
-    except KeyboardInterrupt:
-        print("Interrupt!")
-        ftp.quit()
-        os.remove(target_path)      # XXX doesn't work, file locked
-        raise
-    except StopIteration:
-        print("Timeout! ", end='')
-        ftp = _reset_ftp(year, day, ftp)
-        wrap_download(year, day, ftp, filename, target_path)
-    except (ftplib.error_reply, ftplib.error_temp, ConnectionResetError):
-        print("Connection error! ", end='')
-        ftp = _reset_ftp(year, day, ftp)
-        wrap_download(year, day, ftp, filename, target_path)
-    finally:
-        time.sleep(SLEEP)
+        import csv
+        files = [
+            f
+            for f in csv.DictReader(StringIO(geturl('%s.csv' % src, tok)),
+                                    skipinitialspace=True)
+        ]
+    except ImportError:
+        import json
+        files = json.loads(geturl(src + '.json', tok))
 
-    return ftp
+    # Skip days to `start_day`
+    if start_day is not None:
+        files = files[start_day - 1:]
 
-
-def _reset_ftp(year, day, ftp):
-    print('Reseting FTP connection...', end='')
-    ftp.close()
-    ftp = setup_ftp_connection()
-    ftp.cwd(f'{year}')
-    ftp.cwd(day)
-    return ftp
+    for f in files:
+        # currently we use filesize of 0 to indicate directory
+        # import ipdb; ipdb.set_trace()
+        filesize = int(f['size'])
+        path = os.path.join(dest, f['name'])
+        url = src + '/' + f['name']
+        if filesize == 0:
+            try:
+                os.mkdir(path)
+            except IOError as e:
+                pass
+            sync(src + '/' + f['name'], path, tok)
+        else:
+            try:
+                if not os.path.exists(path):
+                    print('downloading: ', path)
+                    with open(path, 'w+b') as fh:
+                        geturl(url, tok, fh)
+                else:
+                    pass
+            except StopIteration:
+                print("Timeout! Trying again...")
+                sync(src, dest, tok)
+            except IOError as e:
+                print("open `%s': %s" % (e.filename, e.strerror),
+                      file=sys.stderr)
+                raise
+    return 0
 
 
 @timeout(60, timeout_exception=StopIteration)
-def _get_binary(filename, target_path, ftp):
-    with open(target_path, 'wb') as open_f:
-        ftp.retrbinary(f"RETR {filename}", open_f.write)
-    print('done!')
+def geturl(url, token=None, out=None):
+    USERAGENT = (
+        'tis/download.py_1.0--' +
+        sys.version.replace('\n', '').replace('\r', '')
+    )
+    headers = {'user-agent': USERAGENT}
+    if token is not None:
+        headers['Authorization'] = 'Bearer ' + token
 
-
-def setup_ftp_connection():
-    """ Establish FTP connection, navigate to MODIS 3K folder """
-    FTP_DOMAIN = r'ladsweb.nascom.nasa.gov'
-    ftp = ftplib.FTP(FTP_DOMAIN)
-    ftp.login()
-    ftp.cwd('allData/6/MOD04_3K')
-
-    return ftp
-
-
-def files_target_path(year, day, f_name):
-    return os.path.join(days_folder_path(year, day), f_name)
-
-
-def make_days_folder(year, day):
-    path = Path(days_folder_path(year, day))
-    path.mkdir(parents=True, exist_ok=True)
-
-
-def days_folder_path(year, day):
-    target_path = os.path.join(LOCAL_DATA_ROOT, f'{year}', f'{day}')
-    return target_path
+    CTX = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+    try:
+        fh = urlopen(Request(url, headers=headers), context=CTX)
+        if out is None:
+            return fh.read().decode('utf-8')
+        else:
+            shutil.copyfileobj(fh, out)
+    except HTTPError as e:
+        print('HTTP GET error code: %d' % e.code(),
+              file=sys.stderr)
+        print('HTTP GET error message: %s' % e.message,
+              file=sys.stderr)
+    except URLError as e:
+        print('Failed to make request: %s' % e.reason,
+              file=sys.stderr)
+    return None
 
 
 if __name__ == '__main__':
-    import sys
     if len(sys.argv) == 2:
         year = int(sys.argv[1])
         if not (2000 < year < 2018):
@@ -146,9 +136,4 @@ if __name__ == '__main__':
     else:
         raise ValueError
 
-    if 0:
-        download_year(year, chunk=chunk)
-    else:
-        ftp = setup_ftp_connection()
-        ftp.cwd(f'{year}')
-        ftp = download_day(year, f'{chunk}'.zfill(3), ftp)
+    _main(year, start_day=chunk)
