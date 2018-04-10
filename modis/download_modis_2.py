@@ -1,18 +1,19 @@
 from __future__ import (division, print_function, absolute_import,
                         unicode_literals)
 
-import argparse
 import os
 import os.path
 import shutil
 import sys
 
 from io import StringIO
+from util.env import data_path
+
 
 USERAGENT = (
         'tis/download.py_1.0--' +
         sys.version.replace('\n', '').replace('\r', '')
-        )
+    )
 
 
 def geturl(url, token=None, out=None):
@@ -125,27 +126,9 @@ def sync(src, dest, tok):
 
 
 def _main(argv):
-    source = argparse.ArgumentParser(
-            prog=argv[0], description=DESC
-            ).add_argument('-s', '--source', dest='source', metavar='URL',
-                           help='Recursively download files at URL',
-                           required=True)
-
-    destination = argparse.ArgumentParser(
-            prog=argv[0], description=DESC
-            ).add_argument('-d', '--destination', dest='destination',
-                           metavar='DIR',
-                           help='Store directory structure in DIR',
-                           required=True)
-
-    token = argparse.ArgumentParser(
-            prog=argv[0], description=DESC
-            ).add_argument('-t', '--token', dest='token', metavar='TOK',
-                           help='Use app token TOK to authenticate',
-                           required=True)
-
-    if not os.path.exists(destination):
-        os.makedirs(destination)
+    source = url
+    destination = data_path('tmp')
+    token = 'F1957080-3CE3-11E8-B246-FFF9569DBFBA'
     return sync(source, destination, token)
 
 
