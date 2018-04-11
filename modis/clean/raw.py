@@ -2,11 +2,12 @@ import os
 import glob
 import pandas as pd
 import numpy as np
-from pyhdf.SD import SD, SDC
+from pyhdf.SD import SD, SDC, HDF4Error
 
 from econtools import load_or_build
 
 from modis.util.env import data_path
+from modis.util.download_data import download_main
 
 
 @load_or_build(data_path('modis_{}.pkl'), path_args=[0])
@@ -37,7 +38,7 @@ def load_modis_day_hdf(year, day):
     if not files:
         raise ValueError("No files found!")
     print(files[0])
-    dfs = [hdf_to_df(load_hdf(filepath)) for filepath in files]
+    dfs = [hdf_to_df(load_hdf(filepath, year, day)) for filepath in files]
     df = pd.concat(dfs).reset_index(drop=True)
 
     # Compress dtypes
@@ -125,10 +126,16 @@ def _flatten_time_data(hdf_table):
     return flat_arr, origin_datetime
 
 
-def load_hdf(filepath):
-    hdf = SD(filepath, SDC.READ)
-
-    return hdf
+def load_hdf(filepath, year, day):
+    try:
+        hdf = SD(filepath, SDC.READ)
+    except HDF4Error:
+        print(f"Error {filepath}, downloading")
+        os.remove(filepath)
+        download_main(year, start_day=day, day_only=True)
+        return load_hdf(filepath, year, day)
+    else:
+        return hdf
 
 
 def print_datasets():
@@ -144,7 +151,4 @@ def print_datasets():
 
 
 if __name__ == '__main__':
-    df = load_modis_year(2012, _rebuild=True, _rebuild_down=False)
-    for year in range(2013, 2017):
-        df = load_modis_year(year, _rebuild=True, _rebuild_down=True)
-        del df
+    df = load_modis_year(2017)
