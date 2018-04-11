@@ -15,7 +15,7 @@ from urllib.request import urlopen, Request, URLError, HTTPError
 import ssl
 from io import StringIO
 
-from util.env import HDF_SRC_PATH_WIN, HDF_SRC_PATH_NIX
+from modis.util.env import HDF_SRC_PATH_WIN, HDF_SRC_PATH_NIX
 try:
     # This utility only works on Linux
     from timeout_decorator import timeout
