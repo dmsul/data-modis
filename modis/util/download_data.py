@@ -124,7 +124,9 @@ def geturl(url, token=None, out=None):
               file=sys.stderr)
         print('HTTP GET error message: %s' % e.message,
               file=sys.stderr)
+        raise
     except URLError as e:
         print('Failed to make request: %s' % e.reason,
               file=sys.stderr)
+        raise
     return None
