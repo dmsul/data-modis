@@ -1,18 +1,16 @@
 import os
 import socket
 
+PROJECT_NAME = 'data-modis'
+
 # Check which machine we're on
 HOST = socket.gethostname()
-if HOST in ('sullivan-10d', 'sullivan-7d'):
+if HOST in ('sullivan-10d', 'sullivan-7d', 'DESKTOP-HOME'):
     data_root = "D:\\"
-elif HOST == 'DESKTOP-HOME':
-    data_root = "D:\\"
-elif HOST == 'nepf-7d':
-    data_root = "M:\\EPA_AirPollution\\"
 else:
-    data_root = r'\\Sullivan-7d\d'
+    data_root = r'\\Sullivan-10d\d'
 
-DATA_PATH = os.path.join(data_root, 'Data', 'modis')
+DATA_PATH = os.path.join(data_root, 'Data', PROJECT_NAME)
 
 HDF_SRC_PATH_WIN = 'e:\\modis\\src'
 HDF_SRC_PATH_NIX = '/media/sf_modis/src'
