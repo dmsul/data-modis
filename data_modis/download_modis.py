@@ -1,6 +1,6 @@
 import argparse
 
-from util.download_data import download_main
+from data_modis.util.download_data import download_main
 
 
 def cli():

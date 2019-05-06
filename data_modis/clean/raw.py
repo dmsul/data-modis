@@ -6,8 +6,8 @@ from pyhdf.SD import SD, SDC, HDF4Error
 
 from econtools import load_or_build
 
-from modis.util.env import data_path
-from modis.util.download_data import download_main
+from data_modis.util.env import data_path
+from data_modis.util.download_data import download_main
 
 
 @load_or_build(data_path('modis_{}.pkl'), path_args=[0])
