@@ -1,21 +1,37 @@
 from setuptools import setup, find_packages
 
+from data_modis.util.env import PROJECT_NAME
+
+
+def readme():
+    try:
+        with open('README.md') as f:
+            return f.read()
+    except IOError:
+        return ''
+
+
+description = 'Easy access to MODIS data.'
 
 dependencies = [
+    'econtools',
+    'pyhdf',
 ]
 
 setup(
-    name='modis',
+    name=PROJECT_NAME,
     version='0.0.1',
-    description='Easy access to MODIS data.',
-    url='http://github.com/dmsul/modis',
+    description=description,
+    long_description=readme(),
+    url=f'http://github.com/dmsul/{PROJECT_NAME}',
     author='Daniel M. Sullivan',
+    author_email='sullydm@gmail.com',
     packages=find_packages(),
     tests_require=[
         'pytest',
     ],
-    package_data={'modis': ["py.typed"]},
-    install_requires=dependencies,
+    # include_package_data=True,        # To copy stuff in `MANIFEST.in`
+    # install_requires=dependencies,
+    package_data={PROJECT_NAME.replace('-', '_'): ["py.typed"]},
     zip_safe=False,
-    license='BSD'
 )
