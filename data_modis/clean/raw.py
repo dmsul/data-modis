@@ -62,8 +62,8 @@ def hdf_to_df(hdf):
 
     lat = _flatten_tables_data(table_lat)
     lon = _flatten_tables_data(table_lon)
-    depth, scale_factor, add_offset = _flatten_tables_data(table_depth,
-                                                           return_offset=True)
+    depth, scale_factor, add_offset, fill_value = _flatten_tables_data(
+        table_depth, return_offset=True)
 
     df = pd.DataFrame(
         np.hstack((lon, lat, depth)),
@@ -76,7 +76,7 @@ def hdf_to_df(hdf):
     df['time'] = pd.to_datetime(scan_time, unit='s', origin=time_origin)
 
     # Drop missings
-    df = df[df['aod'] != scale_factor * (-9999 - add_offset)].copy()
+    df = df[df['aod'] != scale_factor * (fill_value - add_offset)].copy()
 
     if 1:
         # Restrict to continental U.S.
@@ -99,7 +99,8 @@ def _flatten_tables_data(hdf_table, return_offset=False):
     add_offset = hdf_table.attributes()['add_offset']
     flat_arr = scale_factor * (arr.reshape(-1, 1) - add_offset)
     if return_offset:
-        return flat_arr, scale_factor, add_offset
+        fill_value = hdf_table.getfillvalue()
+        return flat_arr, scale_factor, add_offset, fill_value
     else:
         return flat_arr
 
